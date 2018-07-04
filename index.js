@@ -1,0 +1,150 @@
+#!/usr/bin/env node
+
+// brew install pkg-config cairo libpng jpeg giflib
+global.THREE =        require('./three.js');
+var three_cr =        require('./CanvasRenderer.js');
+var three_p =         require('./Projector.js');
+var fs =              require('fs');
+var Canvas =          require('canvas');
+var exportSTL =       require('threejs-export-stl');
+var args =            process.argv.slice(2);
+var bPNG =            false;
+var platformX =       100;
+var platformY =       100;
+var margin =          10;
+var usableWidth =     platformX - margin - margin;
+var dotD =            1.5;
+var dotR =            dotD / 2;
+var dotSeparation =   2.4;
+var cellSeparation =  7.0;
+var cellLineHeight =  10.0;
+var charsPerLine =    Math.floor(usableWidth / cellSeparation);
+var platformH =       4;
+var canvas_w =        300;
+var canvas_h =        150;
+var viewport_x =      400;
+var viewport_y =      400;
+var black =           0x000000;
+var white =           0xffffff;
+var scene =           new THREE.Scene();
+var camera =          new THREE.OrthographicCamera(-450, 450, 150, -150, -1000, 1000);
+var platform =        new THREE.BoxGeometry(platformX, platformY, platformH); // The units are mm
+var aDotGeometry =    [];
+var aSphereMesh =     [];
+
+if (args.length < 1) {
+  console.log('Syntax: 3d-braille "message to print in braille"');
+  return;
+}
+
+// Order used for the following arrays
+// * * 0,1
+// * * 2,3
+// * * 4,5      a.k.a. 1 4 2 5 3 6  ...when counting down the left column then the right
+var braille_space =   [0,0,0,0,0,0];
+var aBraille =        [
+  [1,0,0,0,0,0]/*a*/,  [1,0,1,0,0,0]/*b*/,  [1,1,0,0,0,0]/*c*/,  [1,1,0,1,0,0]/*d*/,
+  [1,0,0,1,0,0]/*e*/,  [1,1,1,0,0,0]/*f*/,  [1,1,1,1,0,0]/*g*/,  [1,0,1,1,0,0]/*h*/,
+  [0,1,1,0,0,0]/*i*/,  [0,1,1,1,0,0]/*j*/,  [1,0,0,0,1,0]/*k*/,  [1,0,1,0,1,0]/*l*/,
+  [1,1,0,0,1,0]/*m*/,  [1,1,0,1,1,0]/*n*/,  [1,0,0,1,1,0]/*o*/,  [1,1,1,0,1,0]/*p*/,
+  [1,1,1,1,1,0]/*q*/,  [1,0,1,1,1,0]/*r*/,  [0,1,1,0,1,0]/*s*/,  [0,1,1,1,1,0]/*t*/,
+  [1,0,0,0,1,1]/*u*/,  [1,0,1,0,1,1]/*v*/,  [0,1,1,1,0,1]/*w*/,  [1,1,0,0,1,1]/*x*/,
+  [1,1,0,1,1,1]/*y*/,  [1,0,0,1,1,1]/*z*/
+];
+
+/*
+  char:    a single letter
+  x/y:     offset of first dot for the braille character
+  zOffset: vertical position of center of sphere
+*/
+function writeDigit(char, x, y, zOffset) {
+  var geometryDot = undefined;
+  var xOffset =     undefined;
+  var yOffset =     undefined;
+  var aDigit =      (char == ' ') ? braille_space : aBraille[char.charCodeAt() - 97];
+  for (var i=0; i<aDigit.length; i++) {
+    switch(i) {
+      case 0: xOffset = x;                 yOffset = y;                                 break;
+      case 1: xOffset = x + dotSeparation; yOffset = y;                                 break;
+      case 2: xOffset = x;                 yOffset = y - dotSeparation;                 break;
+      case 3: xOffset = x + dotSeparation; yOffset = y - dotSeparation;                 break;
+      case 4: xOffset = x;                 yOffset = y - dotSeparation - dotSeparation; break;
+      case 5: xOffset = x + dotSeparation; yOffset = y - dotSeparation - dotSeparation; break;
+    }
+    if (aDigit[i]) {
+      geometryDot = new THREE.SphereGeometry(dotR);
+      geometryDot.applyMatrix(new THREE.Matrix4().makeTranslation(xOffset, yOffset, zOffset));
+      aDotGeometry.push(geometryDot);    
+    } // if (aDigit[i]...)
+  }   // for (var i...)
+}     // function writeDigit()
+
+/*
+** --------------------------------------------------------------------------
+** Convert the incoming string into an array and iteratively call
+** writeDigit() to render each character seen.
+** --------------------------------------------------------------------------
+*/
+var str =           args[0].split('');               console.log('Printing: ' + args[0]);
+var x =             (-1 * platformX / 2) + margin;
+var y =             (platformY / 2)      - margin;
+var nChars =        0;
+var line =          0;
+var xLineOffset =   0;
+for (var i=0; i<str.length; i++, nChars++) {
+  writeDigit(str[i],
+    x + (xLineOffset * cellSeparation),
+    y - (line * cellLineHeight),
+    platformH / 2);
+  if ((nChars + 1) % (charsPerLine + 1)) {
+    xLineOffset++;
+  } else {
+    line++;
+    xLineOffset = 0;
+  }
+}
+
+/*
+** --------------------------------------------------------------------------
+** Combine the platform geometry with that of the array of spheres which
+** represent the dots of each character.
+** --------------------------------------------------------------------------
+*/
+var singleGeometry =  new THREE.Geometry();
+var platformMesh =    new THREE.Mesh(platform);
+platformMesh.updateMatrix();
+singleGeometry.merge(platformMesh.geometry, platformMesh.matrix);
+for (var i=0; i<aDotGeometry.length; i++) {
+  aSphereMesh.push(new THREE.Mesh(aDotGeometry[i]));
+  aSphereMesh[i].updateMatrix();
+  singleGeometry.merge(aSphereMesh[i].geometry, aSphereMesh[i].matrix);
+}
+var material =        new THREE.MeshBasicMaterial( { color: white, overdraw: 0.5 } );
+var mesh =            new THREE.Mesh(singleGeometry, material);
+scene.add(mesh);
+/*
+** --------------------------------------------------------------------------
+** The renderer expects a DOM and canvas so we fake it out here.
+** --------------------------------------------------------------------------
+*/
+var canvas =          new Canvas(canvas_w, canvas_h);
+canvas.style =        {}; // dummy shim to prevent errors during render.setSize
+var renderer =        new THREE.CanvasRenderer({canvas: canvas});
+renderer.setClearColor(black, 0);
+renderer.setSize(viewport_x, viewport_y);
+renderer.render(scene, camera);
+/*
+** --------------------------------------------------------------------------
+** Finally, we serialize the buffer to an STL file.
+** --------------------------------------------------------------------------
+*/
+var buffer =          exportSTL.fromMesh(mesh);
+var buf =             new Buffer.from(buffer);
+fs.writeFile('./output.stl', buf, function(err) {if (err) console.log(err); else console.log('Created output.stl')});
+
+if (bPNG) {
+  var out =               fs.createWriteStream('./output.png');
+  var canvasStream =      canvas.pngStream();
+  canvasStream.on('data', function (chunk) { out.write(chunk); });
+  canvasStream.on('end',  function ()      { console.log('Created output.png'); });
+}
