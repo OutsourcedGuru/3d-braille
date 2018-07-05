@@ -7,6 +7,7 @@ var three_p =         require('./Projector.js');
 var fs =              require('fs');
 var Canvas =          require('canvas');
 var exportSTL =       require('threejs-export-stl');
+var package =         require('./package.json');
 var args =            process.argv.slice(2);
 var bPNG =            false;
 var platformX =       100;
@@ -28,7 +29,6 @@ var black =           0x000000;
 var white =           0xffffff;
 var scene =           new THREE.Scene();
 var camera =          new THREE.OrthographicCamera(-450, 450, 150, -150, -1000, 1000);
-var platform =        new THREE.BoxGeometry(platformX, platformY, platformH); // The units are mm
 var aDotGeometry =    [];
 var aSphereMesh =     [];
 
@@ -36,6 +36,19 @@ if (args.length < 1) {
   console.log('Syntax: 3d-braille "message to print in braille"');
   return;
 }
+if (args.length == 1 && (args[0] == "-v" || args[0] == "--version")) {
+  console.log('3d-braille v' + package.version);
+  return;
+}
+if (args.length > 1 && args[1].substr(0,4) == "--w=") {
+  platformX = parseFloat(args[1].substr(4));
+  console.log('platformX: ' + platformX);
+}
+if (args.length > 2 && args[2].substr(0,4) == "--h=") {
+  platformY = parseFloat(args[2].substr(4));
+  console.log('platformY: ' + platformY);
+}
+var platform =        new THREE.BoxGeometry(platformX, platformY, platformH); // The units are mm
 
 // Order used for the following arrays
 // * * 0,1
@@ -92,7 +105,7 @@ var nChars =        0;
 var line =          0;
 var xLineOffset =   0;
 for (var i=0; i<str.length; i++, nChars++) {
-  writeDigit(str[i],
+  writeDigit(str[i].toLowerCase(),
     x + (xLineOffset * cellSeparation),
     y - (line * cellLineHeight),
     platformH / 2);
