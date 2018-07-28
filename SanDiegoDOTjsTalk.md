@@ -40,7 +40,8 @@ This is a Node-based CLI which will dynamically render a 3D mesh scene and store
 &nbsp;
 
 ## Requirements for this project:
-* **3d-braille** CLI with a simple command line interface
+* **Node** and **git**
+* The **3d-braille** CLI code with a simple command line interface
 * **Cura** app (or similar) for slicing the `.STL` file into `.GCODE` for the printer
 * **3D printer** Any GCODE-compatible 3D printer
 
@@ -68,7 +69,6 @@ $ 3d-braille "abcdefghijklmnopqrstuvwx" --w=100 --h=35
 platformX: 100
 platformY: 35
 Printing: abcdefghijklmnopqrstuvwx
-THREE.CanvasRenderer 94
 Created output.stl
 ```
 
