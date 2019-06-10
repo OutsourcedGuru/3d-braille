@@ -36,7 +36,7 @@ You should invoke the executable from a folder in which you have the rights to c
 
 |Description|Version|Author|Last Update|
 |:---|:---|:---|:---|
-|3d-braille|v1.0.1|OutsourcedGuru|July 4, 2018|
+|3d-braille|v1.0.2|OutsourcedGuru|June 10, 2019|
 
 |Donate||Cryptocurrency|
 |:-----:|---|:--------:|
